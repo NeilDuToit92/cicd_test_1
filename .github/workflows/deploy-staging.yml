@@ -1,0 +1,85 @@
+name: Deploy to Staging
+
+on:
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Deploy to Staging
+        run: |
+          ssh -o StrictHostKeyChecking=no user@staging-server "docker service update --image your-docker-repo/your-app:latest your-staging-service"
+
+      - name: Wait for service to be healthy
+        run: |
+          echo "Waiting for service to be healthy..."
+          sleep 30  # Initial sleep to allow deployment to start
+          DEPLOYMENT_VERSION=${{ github.sha }}
+          TIMEOUT=300  # Time limit in seconds (5 minutes)
+          START_TIME=$(date +%s)
+          while true; do
+            CURRENT_TIME=$(date +%s)
+            ELAPSED_TIME=$((CURRENT_TIME - START_TIME))
+            if curl -s http://staging-server/health | grep -q "healthy" && [ "$(curl -s http://staging-server/version)" == "$DEPLOYMENT_VERSION" ]; then
+              echo "Service is healthy and correct version is deployed."
+              break
+            fi
+            if [ $ELAPSED_TIME -ge $TIMEOUT ]; then
+              echo "Timeout: Service did not become healthy with the correct version within the time limit."
+              exit 1
+            fi
+            echo "Service not healthy yet or incorrect version... retrying in 10 seconds."
+            sleep 10
+          done
+
+      - name: Trigger K6 Tests in Another Repo
+        run: |
+          curl -X POST \
+          -H "Accept: application/vnd.github.v3+json" \
+          -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+          https://api.github.com/repos/other-user/other-repo/actions/workflows/k6-test.yml/dispatches \
+          -d '{"ref":"main"}'
+
+      - name: Wait for K6 Tests to Complete
+        run: |
+          echo "Waiting for K6 tests to complete..."
+          sleep 30  # Initial wait before polling
+          TIMEOUT=600  # Time limit in seconds (10 minutes)
+          START_TIME=$(date +%s)
+          WORKFLOW_RUN_ID=$(curl -s \
+            -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            https://api.github.com/repos/other-user/other-repo/actions/runs | jq -r '.workflow_runs[0].id')
+          while true; do
+            CURRENT_TIME=$(date +%s)
+            ELAPSED_TIME=$((CURRENT_TIME - START_TIME))
+            WORKFLOW_STATUS=$(curl -s \
+              -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+              https://api.github.com/repos/other-user/other-repo/actions/runs/$WORKFLOW_RUN_ID | jq -r '.status')
+            if [ "$WORKFLOW_STATUS" == "completed" ]; then
+              WORKFLOW_CONCLUSION=$(curl -s \
+                -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+                https://api.github.com/repos/other-user/other-repo/actions/runs/$WORKFLOW_RUN_ID | jq -r '.conclusion')
+              if [ "$WORKFLOW_CONCLUSION" == "success" ]; then
+                echo "K6 tests completed successfully."
+                break
+              else
+                echo "K6 tests failed."
+                exit 1
+              fi
+            fi
+            if [ $ELAPSED_TIME -ge $TIMEOUT ]; then
+              echo "Timeout: K6 tests did not complete within the time limit."
+              exit 1
+            fi
+            echo "K6 tests still running... retrying in 10 seconds."
+            sleep 10
+          done
+
+      - name: Run Selenium Tests
+        run: |
+          # Add your Selenium test commands here
