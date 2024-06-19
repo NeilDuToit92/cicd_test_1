@@ -1,0 +1,19 @@
+name: Deploy to Staging
+
+on:
+  workflow_run:
+    workflows: ["Build"]
+    types:
+      - completed
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    needs: build
+    environment:
+      name: production
+
+    steps:
+      - name: Deploy to Production
+        run: |
+          ssh -o StrictHostKeyChecking=no user@staging-server "docker service update --image your-docker-repo/your-app:latest your-staging-service"
