@@ -4,19 +4,40 @@ on:
   workflow_dispatch:
 
 jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up JDK ${{ matrix.java-version }}
+      uses: actions/setup-java@v3
+      with:
+        java-version: ${{ matrix.java-version }}
+        distribution: 'temurin'
+
+    - name: Grant execute permission for gradlew
+      run: chmod +x gradlew
+
+    - name: Cache Gradle packages
+      uses: actions/cache@v3
+      with:
+        path: |
+          ~/.gradle/caches
+          ~/.gradle/wrapper
+        key: gradle-${{ runner.os }}-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
+        restore-keys: |
+          gradle-${{ runner.os }}-
+    - name: Gradle Build
+      run: ./gradlew build
+
+    - name: Gradle BootJar
+      run: ./gradlew bootJar
   deploy:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Gradle Build
-        run: ./gradlew build
-
-      - name: Gradle BootJar
-        run: ./gradlew bootJar
-
       - name: Deploy to Staging
         run: |
           ssh -o StrictHostKeyChecking=no user@staging-server "docker service update --image your-docker-repo/your-app:latest your-staging-service"
