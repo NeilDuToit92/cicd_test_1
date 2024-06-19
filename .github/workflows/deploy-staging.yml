@@ -11,7 +11,10 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Build with Gradle
+      - name: Gradle Build
+        run: ./gradlew build
+
+      - name: Gradle BootJar
         run: ./gradlew bootJar
 
       - name: Deploy to Staging
