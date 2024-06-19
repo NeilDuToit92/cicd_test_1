@@ -67,7 +67,7 @@ jobs:
     steps:
       - name: Poll Integration Tests Status
         id: poll
-        uses: benc-uk/workflow-dispatch@v1.3
+        uses: benc-uk/workflow-dispatch@v1.2.3
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           owner: NeilDuToit92
