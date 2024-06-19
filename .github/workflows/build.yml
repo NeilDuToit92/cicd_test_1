@@ -41,7 +41,7 @@ jobs:
 
   IntegrationTests:
     runs-on: ubuntu-latest
-    needs: build
+    needs: BuildAndDockerize
     steps:
       - name: Integration tests
         run: |
