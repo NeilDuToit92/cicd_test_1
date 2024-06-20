@@ -84,7 +84,7 @@ jobs:
 
   DeployStaging:
     runs-on: ubuntu-latest
-    needs: UnitTest
+    needs: BuildDocker
     environment:
       name: staging
     steps:
