@@ -142,7 +142,7 @@ jobs:
 
   DeployProd:
     runs-on: ubuntu-latest
-    needs: [PollIntegrationTests, CheckPerfTests]
+    needs: [CheckIntegrationTests, CheckPerfTests]
     environment:
       name: production
     steps:
